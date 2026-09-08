@@ -1,0 +1,6 @@
+<!-- INTENTIONALLY VULNERABLE - DO NOT DEPLOY -->
+<!doctype html><title>login</title>
+{% if user %}<p>welcome, {{ user }}</p>{% else %}
+<form method="post" action="/login">
+<input name="username"><input name="password" type="password"><button>login</button>
+</form>{% endif %}
