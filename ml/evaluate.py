@@ -5,8 +5,8 @@ from pathlib import Path
 import pandas as pd
 
 from ml.eval.report import (
-    evaluate_model, write_confusion_md, write_curves, write_fp_fn_csvs,
-    write_latency_md, write_model_report,
+    evaluate_model, write_adversarial_table, write_confusion_md, write_curves,
+    write_fp_fn_csvs, write_latency_md, write_model_report,
 )
 from ml.models.base import get_detector
 import ml.models.baseline  # noqa: F401
@@ -45,6 +45,7 @@ def evaluate_all(artifacts_dir: Path, processed_dir: Path,
     write_model_report(results, out_dir / "MODEL_REPORT.md")
     write_confusion_md(results, out_dir / "confusion.md")
     write_latency_md(results, out_dir / "latency.md")
+    write_adversarial_table(results, out_dir / "adversarial.md")
     if scores_by_model:
         write_curves(scores_by_model, test_df["label"].tolist(), out_dir)
     return results

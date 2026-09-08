@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     block_threshold: float = 0.5
     min_value_len: int = 3
     events_db: str = "/data/events.db"
+    # Input caps (I7): a padded request must not be able to force fail-open by
+    # making scoring exceed the proxy budget. Env: MAX_CANDIDATES, MAX_BODY_BYTES.
+    max_candidates: int = 50
+    max_body_bytes: int = 262144
 
 
 def get_settings() -> Settings:

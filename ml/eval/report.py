@@ -1,6 +1,5 @@
 from __future__ import annotations
 import csv
-import json
 import time
 from pathlib import Path
 
@@ -18,14 +17,25 @@ from ml.eval.metrics import (  # noqa: E402
 
 
 def _latency_ms(detector, samples: list[str], reps: int = 50) -> dict:
-    times: list[float] = []
-    for _ in range(reps):
-        t0 = time.perf_counter()
-        detector.predict_proba(samples[:1])
-        times.append((time.perf_counter() - t0) * 1000.0)
-    arr = np.array(times)
-    return {"p50": float(np.percentile(arr, 50)),
-            "p99": float(np.percentile(arr, 99))}
+    """Batch=1 and batch=32 `predict_proba` timing (spec §6)."""
+    def _bench(batch: list[str]) -> tuple[float, float]:
+        times: list[float] = []
+        for _ in range(reps):
+            t0 = time.perf_counter()
+            detector.predict_proba(batch)
+            times.append((time.perf_counter() - t0) * 1000.0)
+        arr = np.array(times)
+        return float(np.percentile(arr, 50)), float(np.percentile(arr, 99))
+
+    b1 = samples[:1]
+    b32 = samples[:32]
+    if len(b32) < 32 and samples:  # tile up to 32 when the split is small
+        b32 = (samples * (32 // len(samples) + 1))[:32]
+
+    p50, p99 = _bench(b1)
+    p50_32, p99_32 = _bench(b32)
+    return {"p50": p50, "p99": p99,
+            "p50_batch32": p50_32, "p99_batch32": p99_32}
 
 
 def _model_bytes(detector) -> int:
@@ -152,14 +162,42 @@ def write_confusion_md(eval_json: dict, path: Path) -> None:
 
 def write_latency_md(eval_json: dict, path: Path) -> None:
     lines = ["# Latency & Size Benchmark", "",
-             "_Batch=1 `predict_proba` timing on held-out test texts._", "",
-             "| model | p50 ms | p99 ms | model_bytes (MB) |",
-             "|---|---|---|---|"]
+             "_`predict_proba` timing on held-out test texts, batch=1 and "
+             "batch=32._", "",
+             "| model | p50 ms | p99 ms | p50 ms (batch=32) | "
+             "p99 ms (batch=32) | model_bytes (MB) |",
+             "|---|---|---|---|---|---|"]
     for name, e in sorted(eval_json.items()):
         lat = e["latency_ms"]
         mb = e["model_bytes"] / (1024 * 1024)
         lines.append(
-            f"| {name} | {lat['p50']:.2f} | {lat['p99']:.2f} | {mb:.2f} |")
+            f"| {name} | {lat['p50']:.2f} | {lat['p99']:.2f} "
+            f"| {lat.get('p50_batch32', float('nan')):.2f} "
+            f"| {lat.get('p99_batch32', float('nan')):.2f} | {mb:.2f} |")
+    lines.append("")
+    path.write_text("\n".join(lines), encoding="utf-8", newline="\n")
+
+
+def write_adversarial_table(eval_json: dict, path: Path) -> None:
+    """Per-technique adversarial detection rate, one column per model."""
+    models = sorted(eval_json)
+    techniques = sorted({
+        tech
+        for e in eval_json.values()
+        for tech in e["adversarial"]["by_technique"]
+    })
+    lines = ["# Adversarial Detection Rate by Technique", "",
+             "_Fraction of obfuscated payloads per bypass technique scored "
+             "malicious (threshold 0.5), from "
+             "`datasets/adversarial_testset.csv`._", "",
+             "| technique | " + " | ".join(models) + " |",
+             "|" + "---|" * (len(models) + 1)]
+    for tech in techniques:
+        cells = []
+        for m in models:
+            rate = eval_json[m]["adversarial"]["by_technique"].get(tech)
+            cells.append("-" if rate is None else f"{rate:.3f}")
+        lines.append(f"| {tech} | " + " | ".join(cells) + " |")
     lines.append("")
     path.write_text("\n".join(lines), encoding="utf-8", newline="\n")
 
@@ -197,6 +235,21 @@ def write_model_report(eval_json: dict, path: Path) -> None:
         "",
         "PR / ROC overlays: `reports/pr_curve.png`, `reports/roc_curve.png` "
         "(regenerated locally, not committed).",
+        "",
+        "Corpus & split: the committed pipeline trains on the hand-authored "
+        "seed corpus only (~175 malicious + ~173 benign values). "
+        "`datasets/download.py` is a stub, so `datasets/raw/` is empty and the "
+        "3-way split is filled by slicing those two files into `seed_shard_*` "
+        "buckets — sharding makes the source-disjoint split effectively "
+        "random, and near-duplicate removal is the only remaining leakage "
+        "guard. This is why the clean held-out split is easily separated (all "
+        "models near 1.0 F1) and the adversarial-technique breakdown in "
+        "`reports/adversarial.md` is the discriminating metric.",
+        "",
+        "Explainability: char n-gram / CNN character-importance visualizations "
+        "(spec §6) are a known omission in this build — the model comparison "
+        "rests on the adversarial-technique breakdown in "
+        "`reports/adversarial.md`.",
         "",
     ]
     path.write_text("\n".join(lines), encoding="utf-8", newline="\n")

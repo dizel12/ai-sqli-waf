@@ -1,6 +1,8 @@
 import pandas as pd
 from ml.models.baseline import BaselineDetector
-from ml.eval.report import evaluate_model, fp_fn_rows
+from ml.eval.report import (
+    _latency_ms, evaluate_model, fp_fn_rows, write_adversarial_table,
+)
 
 
 def _tiny_detector():
@@ -52,6 +54,29 @@ def test_fp_fn_rows_columns_and_worst_first_ordering():
     assert fn[0][1] <= fn[1][1]
     # rows are (text, float) pairs
     assert all(isinstance(t, str) and isinstance(s, float) for t, s in fp + fn)
+
+
+def test_latency_ms_has_batch1_and_batch32_keys():
+    d, tr = _tiny_detector()
+    lat = _latency_ms(d, tr["text"].tolist(), reps=2)
+    assert set(lat) == {"p50", "p99", "p50_batch32", "p99_batch32"}
+    assert all(isinstance(v, float) and v >= 0.0 for v in lat.values())
+
+
+def test_write_adversarial_table_has_row_per_technique(tmp_path):
+    eval_json = {
+        "baseline": {"adversarial": {"by_technique": {
+            "inline-comment": 0.5, "case-mixing": 0.9}}},
+        "cnn": {"adversarial": {"by_technique": {
+            "inline-comment": 0.8, "whitespace": 1.0}}},
+    }
+    path = tmp_path / "adversarial.md"
+    write_adversarial_table(eval_json, path)
+    text = path.read_text(encoding="utf-8")
+    for tech in ("inline-comment", "case-mixing", "whitespace"):
+        assert any(line.startswith(f"| {tech} |")
+                   for line in text.splitlines()), tech
+    assert "| technique | baseline | cnn |" in text
 
 
 def test_fp_fn_rows_respects_top_limit():

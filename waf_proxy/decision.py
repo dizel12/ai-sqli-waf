@@ -10,7 +10,9 @@ from waf_proxy.config import Settings
 from waf_proxy.events import EventStore
 from waf_proxy.extract import extract_candidates
 
-_HOP = {"host", "content-length", "connection"}
+_HOP = {"host", "content-length", "connection", "transfer-encoding",
+        "content-encoding", "keep-alive", "upgrade", "te", "trailer",
+        "proxy-authenticate", "proxy-authorization"}
 
 
 async def score_values(client: httpx.AsyncClient, inference_url: str,
@@ -46,9 +48,27 @@ def create_app(settings: Settings, event_store: EventStore,
                    methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
     async def proxy(request: Request, full_path: str) -> Response:
         body = await request.body()
+
+        # I7: an oversized body would make extraction + scoring unbounded, which
+        # a padded request could exploit to force fail-open. Skip scoring, log a
+        # single placeholder event, and forward untouched.
+        if len(body) > settings.max_body_bytes:
+            event_store.record(
+                method=request.method, path=request.url.path, param="-",
+                value="", scores={}, active_model=settings.active_model,
+                score=0.0, threshold=settings.block_threshold,
+                blocked=False, secure_mode=secure_mode_flag)
+            return await _forward(client, settings, request, body)
+
         cands = extract_candidates(request.method, request.url.query,
                                    dict(request.headers), body,
                                    settings.min_value_len)
+        # I7: cap inspection breadth so a request stuffed with hundreds of
+        # params can't blow the inference budget. Keep the longest values —
+        # obfuscated SQLi payloads tend to be long.
+        if len(cands) > settings.max_candidates:
+            cands = sorted(cands, key=lambda c: len(c.value),
+                           reverse=True)[:settings.max_candidates]
         values = [c.value for c in cands]
 
         results = None

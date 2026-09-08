@@ -140,6 +140,19 @@ The 3-model comparison (F1, PR-AUC, ROC-AUC, recall at FPR ≤ 0.1%, adversarial
 detection rate, latency, size) and the rationale for `cnn` as the active model
 are in [`reports/MODEL_REPORT.md`](reports/MODEL_REPORT.md).
 
+**What the committed pipeline actually trains on.** The pipeline runs off the
+hand-authored **seed corpus only** — roughly 175 malicious and 173 benign
+values in `datasets/seed/`, which the source-disjoint split divides into
+204 / 67 / 68 train / val / test rows. `datasets/download.py` is a stub (public
+dataset URLs and licenses are still pending), so `datasets/raw/` stays empty
+and `load_raw` returns nothing. The 3-way split is therefore filled by slicing
+those two files into `seed_shard_*` buckets, which makes it effectively random;
+near-duplicate removal is the only leakage control that still bites.
+Consequently the held-out clean split is small and easily separated — all three
+models score about 1.0 F1 on it — and the **adversarial detection rate** (see
+[`reports/adversarial.md`](reports/adversarial.md)) is the metric that actually
+discriminates between the models.
+
 **Note:** the trained DistilBERT artifact (~269 MB) is gitignored
 (`ml/artifacts/distilbert/`). Run `python -m ml.train --model distilbert`
 locally if you want to serve it live; its comparison numbers are already

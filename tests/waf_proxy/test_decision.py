@@ -1,3 +1,5 @@
+import json
+
 import respx
 import httpx
 from fastapi.testclient import TestClient
@@ -81,6 +83,50 @@ def test_empty_results_fails_open(tmp_path):
     r = c.get("/search?q=' OR 1=1 -- ")
     assert r.status_code == 200
     assert st.recent()[0]["blocked"] == 0
+
+
+@respx.mock
+def test_oversized_body_is_forwarded_unscored(tmp_path):
+    inf = respx.post("http://inf:9000/predict").mock(
+        return_value=httpx.Response(200, json={"results": []}))
+    up = respx.post("http://up:8000/upload").mock(
+        return_value=httpx.Response(200, text="stored"))
+    st = EventStore(str(tmp_path / "e.db"))
+    s = Settings(inference_url="http://inf:9000", upstream_url="http://up:8000",
+                 events_db=str(tmp_path / "e.db"), max_body_bytes=1024)
+    c = TestClient(create_app(s, st))
+    big = "q=" + "A" * 5000  # well over max_body_bytes
+    r = c.post("/upload", content=big,
+               headers={"content-type": "application/x-www-form-urlencoded"})
+    assert r.status_code == 200
+    assert r.text == "stored"
+    assert inf.called is False
+    assert up.called is True
+    assert st.recent()[0]["blocked"] == 0
+
+
+@respx.mock
+def test_candidate_count_is_capped(tmp_path):
+    seen: dict = {}
+
+    def _capture(request):
+        seen["n"] = len(json.loads(request.content)["values"])
+        return httpx.Response(200, json={"results": [
+            {"value": "x", "scores": {"cnn": 0.01}, "active_model": "cnn",
+             "score": 0.01, "decision": "benign", "threshold": 0.5}]})
+
+    respx.post("http://inf:9000/predict").mock(side_effect=_capture)
+    up = respx.get("http://up:8000/search").mock(
+        return_value=httpx.Response(200, text="ok"))
+    st = EventStore(str(tmp_path / "e.db"))
+    s = Settings(inference_url="http://inf:9000", upstream_url="http://up:8000",
+                 events_db=str(tmp_path / "e.db"), max_candidates=50)
+    c = TestClient(create_app(s, st))
+    qs = "&".join(f"p{i}=value_{i:04d}" for i in range(200))
+    r = c.get("/search?" + qs)
+    assert r.status_code == 200
+    assert up.called is True
+    assert seen["n"] == 50
 
 
 @respx.mock

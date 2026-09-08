@@ -32,6 +32,13 @@ def load_seed(datasets_dir: Path, n_shards: int = 5) -> list[dict]:
 
     Each ``seed_shard_k`` contains BOTH malicious and benign lines so that a
     3-way source-disjoint split cannot leave any split empty or single-label.
+
+    Note: sharding is purely a mechanism to let the source-disjoint 3-way split
+    fill all three splits from a two-file corpus. Because every ``seed_shard_k``
+    is just an ``i % n_shards`` slice of the same ``malicious.txt`` /
+    ``benign.txt``, "source" here carries no provenance meaning and the split is
+    effectively random. ``remove_near_duplicates`` (in ``build``) is the only
+    remaining leakage control.
     """
     seed = datasets_dir / "seed"
     mal = (seed / "malicious.txt").read_text(encoding="utf-8").splitlines()
