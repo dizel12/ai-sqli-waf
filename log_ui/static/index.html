@@ -14,27 +14,56 @@ td,th{border:1px solid #ccc;padding:4px 8px;font-size:13px}
 <th>decision</th><th>secure</th></tr></thead><tbody></tbody></table>
 <script>
 const tb=document.querySelector('#t tbody'),only=document.querySelector('#only');
-function bar(x){return x==null?'-':`<span class="bar" style="width:${Math.round(x*60)}px"></span>${x.toFixed(2)}`}
+const allEvents=[];
+function textCell(text){
+  const td=document.createElement('td');
+  td.textContent=text;
+  return td;
+}
+function barCell(x){
+  const td=document.createElement('td');
+  if(x==null){td.textContent='-';return td;}
+  const span=document.createElement('span');
+  span.className='bar';
+  span.style.width=Math.round(x*60)+'px';
+  td.appendChild(span);
+  td.appendChild(document.createTextNode(x.toFixed(2)));
+  return td;
+}
 function row(e){
-  if(only.checked && !e.blocked) return;
   const tr=document.createElement('tr');
   tr.className=e.blocked?'b':'a';
   const s=e.scores||{};
-  tr.innerHTML=`<td>${e.ts}</td><td>${e.method}</td><td>${e.path}</td>
-  <td>${e.param}</td><td>${(e.value||'').slice(0,60)}</td>
-  <td>${bar(s.cnn)}</td><td>${bar(s.baseline)}</td><td>${bar(s.distilbert)}</td>
-  <td>${e.active_model}</td><td>${e.blocked?'BLOCKED':'ALLOWED'}</td>
-  <td>${e.secure_mode?'on':'off'}</td>`;
-  tb.prepend(tr);
+  tr.appendChild(textCell(e.ts));
+  tr.appendChild(textCell(e.method));
+  tr.appendChild(textCell(e.path));
+  tr.appendChild(textCell(e.param));
+  tr.appendChild(textCell((e.value||'').slice(0,60)));
+  tr.appendChild(barCell(s.cnn));
+  tr.appendChild(barCell(s.baseline));
+  tr.appendChild(barCell(s.distilbert));
+  tr.appendChild(textCell(e.active_model));
+  tr.appendChild(textCell(e.blocked?'BLOCKED':'ALLOWED'));
+  tr.appendChild(textCell(e.secure_mode?'on':'off'));
+  return tr;
+}
+function render(){
+  tb.replaceChildren();
+  for(const e of allEvents){
+    if(only.checked && !e.blocked) continue;
+    tb.prepend(row(e));
+  }
 }
 async function boot(){
   const j=await (await fetch('/events?limit=100')).json();
-  j.events.reverse().forEach(row);
+  j.events.reverse().forEach(e=>allEvents.push(e));
+  render();
   const s=await (await fetch('/summary')).json();
   document.querySelector('#sum').textContent=
-    `total ${s.total} · blocked ${s.blocked} · rate ${(s.block_rate*100).toFixed(1)}% · active ${s.active_model||'?'}`;
+    `total ${s.total} · blocked ${s.blocked} · rate ${(s.block_rate*100).toFixed(1)}% · active ${s.active_model||'?'} @ thr ${s.threshold ?? '?'}`;
   const es=new EventSource('/events/stream');
-  es.onmessage=ev=>row(JSON.parse(ev.data));
+  es.onmessage=ev=>{allEvents.push(JSON.parse(ev.data));render();};
 }
+only.addEventListener('change',render);
 boot();
 </script>
