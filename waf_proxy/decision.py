@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+import os
+
 import httpx
 from fastapi import FastAPI, Request, Response
 
@@ -33,7 +36,7 @@ def create_app(settings: Settings, event_store: EventStore,
                http_client: httpx.AsyncClient | None = None) -> FastAPI:
     app = FastAPI(title="waf-proxy")
     client = http_client or httpx.AsyncClient()
-    secure_mode_flag = False  # updated via header echo from upstream if present
+    secure_mode_flag = os.environ.get("SECURE_MODE", "0") == "1"
 
     @app.on_event("shutdown")
     async def _close():
@@ -53,8 +56,8 @@ def create_app(settings: Settings, event_store: EventStore,
             results = await score_values(client, settings.inference_url,
                                          values, settings.inference_timeout_ms)
 
-        if results is None:
-            # fail-open (either nothing to score, or inference unavailable)
+        if not results:
+            # fail-open (nothing to score, inference unavailable, or empty results)
             if values:
                 event_store.record(
                     method=request.method, path=request.url.path, param="-",
@@ -75,9 +78,12 @@ def create_app(settings: Settings, event_store: EventStore,
 
         if blocked:
             return Response(
-                content=(f'{{"blocked_by":"ai-waf","model":"{worst["active_model"]}",'
-                         f'"score":{worst["score"]:.4f},'
-                         f'"matched_param":"{matched.name}"}}'),
+                content=json.dumps({
+                    "blocked_by": "ai-waf",
+                    "model": worst["active_model"],
+                    "score": round(worst["score"], 4),
+                    "matched_param": matched.name,
+                }),
                 status_code=403, media_type="application/json")
 
         return await _forward(client, settings, request, body)
