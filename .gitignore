@@ -1,1 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+datasets/raw/*
+!datasets/raw/SOURCES.md
+*.db
+reports/*.png
+.DS_Store
 .superpowers/

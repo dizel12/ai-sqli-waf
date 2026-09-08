@@ -1,0 +1,6 @@
+pytest==8.3.4
+pandas==2.2.3
+pyarrow==18.1.0
+scikit-learn==1.6.1
+datasketch==1.6.5
+httpx==0.28.1
