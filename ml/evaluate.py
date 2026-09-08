@@ -4,7 +4,10 @@ from pathlib import Path
 
 import pandas as pd
 
-from ml.eval.report import evaluate_model, write_model_report
+from ml.eval.report import (
+    evaluate_model, write_confusion_md, write_curves, write_fp_fn_csvs,
+    write_latency_md, write_model_report,
+)
 from ml.models.base import get_detector
 import ml.models.baseline  # noqa: F401
 
@@ -26,14 +29,24 @@ def evaluate_all(artifacts_dir: Path, processed_dir: Path,
     adv_df = pd.read_csv(datasets_dir / "adversarial_testset.csv")
 
     results: dict = {}
+    scores_by_model: dict = {}
     for sub in sorted(p for p in artifacts_dir.iterdir() if p.is_dir()):
         if not (sub / "run.json").exists():
             continue
         det = _load_detector(sub.name, sub)
-        results[sub.name] = evaluate_model(det, test_df, adv_df)
+        scores = det.predict_proba(test_df["text"].tolist())
+        scores_by_model[sub.name] = scores
+        results[sub.name] = evaluate_model(det, test_df, adv_df, scores=scores)
+        write_fp_fn_csvs(sub.name, test_df["text"].tolist(),
+                         test_df["label"].tolist(), scores, out_dir)
 
-    (out_dir / "eval.json").write_text(json.dumps(results, indent=2))
-    write_model_report(results, _ROOT / "reports" / "MODEL_REPORT.md")
+    (out_dir / "eval.json").write_text(json.dumps(results, indent=2),
+                                       encoding="utf-8", newline="\n")
+    write_model_report(results, out_dir / "MODEL_REPORT.md")
+    write_confusion_md(results, out_dir / "confusion.md")
+    write_latency_md(results, out_dir / "latency.md")
+    if scores_by_model:
+        write_curves(scores_by_model, test_df["label"].tolist(), out_dir)
     return results
 
 
