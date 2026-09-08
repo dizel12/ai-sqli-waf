@@ -1,0 +1,9 @@
+{
+  "model": "cnn",
+  "seed": 13,
+  "n_train": 204,
+  "n_val": 67,
+  "train_seconds": 1.473,
+  "git_commit": "fbb595fd5443b4abc1e3399761de3564fe6424b0",
+  "data_sha256": "6d00f321559817b976b79f2499a1e7652abf1ac2c03688503012bd1700303fd6"
+}

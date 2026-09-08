@@ -58,9 +58,73 @@
       }
     },
     "latency_ms": {
-      "p50": 0.7808999998815125,
-      "p99": 1.232481000733969
+      "p50": 0.8041999990382465,
+      "p99": 1.2819700000909502
     },
     "model_bytes": 25168448
+  },
+  "cnn": {
+    "test": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "pr_auc": 1.0,
+      "roc_auc": 1.0,
+      "threshold": 0.5,
+      "recall_at_fpr_0.1pct": {
+        "recall": 1.0,
+        "threshold": 0.665794849395752,
+        "fpr": 0.0
+      }
+    },
+    "adversarial": {
+      "detection_rate": 0.8846153846153846,
+      "by_technique": {
+        "ascii-function": 1.0,
+        "between-operator": 1.0,
+        "case-mix-and-comment": 1.0,
+        "case-mixing": 1.0,
+        "case-mixing-stacked": 1.0,
+        "char-function": 1.0,
+        "dash-dash-dash-comment": 1.0,
+        "double-url-encode": 0.3333333333333333,
+        "float-literal": 1.0,
+        "gbk-multibyte-quote": 1.0,
+        "hash-comment": 1.0,
+        "hex-cast": 1.0,
+        "hex-literal": 1.0,
+        "in-operator": 1.0,
+        "inline-comment": 1.0,
+        "inline-comment-lower": 1.0,
+        "like-operator": 1.0,
+        "mysql-versioned-comment": 1.0,
+        "no-space-parens": 1.0,
+        "not-operator": 1.0,
+        "null-byte": 0.5,
+        "overlong-utf8-quote": 1.0,
+        "regexp-operator": 1.0,
+        "rlike-operator": 1.0,
+        "scientific-notation": 1.0,
+        "split-keyword": 1.0,
+        "string-concat": 1.0,
+        "string-concat-mssql": 1.0,
+        "string-concat-oracle": 1.0,
+        "unhex-function": 1.0,
+        "unicode-string-prefix": 1.0,
+        "url-encode-basic": 0.0,
+        "url-encode-comment": 1.0,
+        "url-encode-paren": 0.0,
+        "url-encode-space": 0.0,
+        "whitespace-as-newline": 1.0,
+        "whitespace-as-plus": 1.0,
+        "whitespace-as-tab": 1.0,
+        "whitespace-comment": 1.0
+      }
+    },
+    "latency_ms": {
+      "p50": 0.454699998954311,
+      "p99": 0.6684600005974061
+    },
+    "model_bytes": 563332
   }
 }
