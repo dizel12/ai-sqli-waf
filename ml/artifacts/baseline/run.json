@@ -1,3 +1,9 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:e72a771e7fee11d83067300320539d2b2127a575161465f2396dc5d561be33e2
-size 251
+{
+  "model": "baseline",
+  "seed": 13,
+  "n_train": 204,
+  "n_val": 67,
+  "train_seconds": 0.023,
+  "git_commit": "79c7021f57c1eec8da47dab68efbbf7043e5033b",
+  "data_sha256": "6d00f321559817b976b79f2499a1e7652abf1ac2c03688503012bd1700303fd6"
+}
