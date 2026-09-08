@@ -8,3 +8,4 @@ datasets/raw/*
 reports/*.png
 .DS_Store
 .superpowers/
+ml/artifacts/distilbert/
