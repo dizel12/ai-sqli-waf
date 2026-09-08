@@ -5,3 +5,4 @@ scikit-learn==1.6.1
 datasketch==1.6.5
 httpx==0.28.1
 fastapi==0.115.6
+pydantic-settings==2.7.0
