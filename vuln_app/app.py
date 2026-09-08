@@ -29,8 +29,9 @@ def create_app(db_path: str = "app.db") -> Flask:
     @app.get("/search")
     def search():
         q = request.args.get("q", "")
-        sql, params = queries.search_sql(q, _secure())
+        sql = "<not built>"
         try:
+            sql, params = queries.search_sql(q, _secure())
             rows = _run(sql, params)
         except Exception as exc:  # noqa: BLE001
             if _secure():
@@ -42,8 +43,9 @@ def create_app(db_path: str = "app.db") -> Flask:
     def login():
         u = request.form.get("username", "")
         p = request.form.get("password", "")
-        sql, params = queries.login_sql(u, p, _secure())
+        sql = "<not built>"
         try:
+            sql, params = queries.login_sql(u, p, _secure())
             rows = _run(sql, params)
         except Exception as exc:  # noqa: BLE001
             if _secure():
@@ -56,8 +58,9 @@ def create_app(db_path: str = "app.db") -> Flask:
     @app.get("/product")
     def product():
         pid = request.args.get("id", "0")
-        sql, params = queries.product_sql(pid, _secure())
+        sql = "<not built>"
         try:
+            sql, params = queries.product_sql(pid, _secure())
             rows = _run(sql, params)
         except Exception as exc:  # noqa: BLE001
             if _secure():
