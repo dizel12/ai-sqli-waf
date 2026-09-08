@@ -8,14 +8,14 @@ import httpx
 PROXY = os.environ.get("PROXY_URL", "http://localhost:8080")
 DIRECT = os.environ.get("DIRECT_URL", "http://localhost:8000")
 
-UNION = "' UNION SELECT id, username, password, price FROM users -- "
+UNION = "' UNION SELECT id, username, password, 0 FROM users -- "
 LOGIN_BYPASS = {"username": "admin' -- ", "password": "x"}
 
 
 def _compose_up(app_secure: bool) -> None:
     env = dict(os.environ, SECURE_MODE="1" if app_secure else "0")
     subprocess.run(["docker", "compose", "up", "-d"], env=env, check=True)
-    time.sleep(8)
+    time.sleep(15)
 
 
 def run_scenario(app_secure: bool, waf_on: bool) -> dict:
