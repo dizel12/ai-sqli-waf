@@ -1,0 +1,7 @@
+.venv
+.git
+__pycache__
+datasets/raw
+*.db
+.pytest_cache
+ml/artifacts/distilbert/

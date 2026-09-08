@@ -1,0 +1,38 @@
+services:
+  vuln-app:
+    build: {context: ., dockerfile: vuln_app/Dockerfile}
+    environment:
+      SECURE_MODE: "${SECURE_MODE:-0}"
+    expose: ["8000"]
+
+  inference-svc:
+    build: {context: ., dockerfile: inference_svc/Dockerfile}
+    environment:
+      ACTIVE_MODEL: "${ACTIVE_MODEL:-cnn}"
+      BLOCK_THRESHOLD: "${BLOCK_THRESHOLD:-0.5}"
+    expose: ["9000"]
+
+  waf-proxy:
+    build: {context: ., dockerfile: waf_proxy/Dockerfile}
+    depends_on: [vuln-app, inference-svc]
+    environment:
+      UPSTREAM_URL: "http://vuln-app:8000"
+      INFERENCE_URL: "http://inference-svc:9000"
+      ACTIVE_MODEL: "${ACTIVE_MODEL:-cnn}"
+      BLOCK_THRESHOLD: "${BLOCK_THRESHOLD:-0.5}"
+      INFERENCE_TIMEOUT_MS: "250"
+      EVENTS_DB: "/data/events.db"
+      SECURE_MODE: "${SECURE_MODE:-0}"
+    volumes: ["waf_data:/data"]
+    ports: ["8080:8080"]
+
+  log-ui:
+    build: {context: ., dockerfile: log_ui/Dockerfile}
+    depends_on: [waf-proxy]
+    environment:
+      EVENTS_DB: "/data/events.db"
+    volumes: ["waf_data:/data"]
+    ports: ["8081:8081"]
+
+volumes:
+  waf_data:
