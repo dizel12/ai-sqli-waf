@@ -1,0 +1,40 @@
+<!doctype html><meta charset="utf-8"><title>AI-WAF log</title>
+<style>
+body{font:14px system-ui;margin:1rem}
+#sum{margin-bottom:1rem}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ccc;padding:4px 8px;font-size:13px}
+.b{background:#fdd}.a{background:#dfd}
+.bar{display:inline-block;height:8px;background:#c33}
+</style>
+<div id="sum"></div>
+<label><input type="checkbox" id="only"> blocked only</label>
+<table id="t"><thead><tr><th>time</th><th>method</th><th>path</th><th>param</th>
+<th>value</th><th>cnn</th><th>baseline</th><th>distilbert</th><th>active</th>
+<th>decision</th><th>secure</th></tr></thead><tbody></tbody></table>
+<script>
+const tb=document.querySelector('#t tbody'),only=document.querySelector('#only');
+function bar(x){return x==null?'-':`<span class="bar" style="width:${Math.round(x*60)}px"></span>${x.toFixed(2)}`}
+function row(e){
+  if(only.checked && !e.blocked) return;
+  const tr=document.createElement('tr');
+  tr.className=e.blocked?'b':'a';
+  const s=e.scores||{};
+  tr.innerHTML=`<td>${e.ts}</td><td>${e.method}</td><td>${e.path}</td>
+  <td>${e.param}</td><td>${(e.value||'').slice(0,60)}</td>
+  <td>${bar(s.cnn)}</td><td>${bar(s.baseline)}</td><td>${bar(s.distilbert)}</td>
+  <td>${e.active_model}</td><td>${e.blocked?'BLOCKED':'ALLOWED'}</td>
+  <td>${e.secure_mode?'on':'off'}</td>`;
+  tb.prepend(tr);
+}
+async function boot(){
+  const j=await (await fetch('/events?limit=100')).json();
+  j.events.reverse().forEach(row);
+  const s=await (await fetch('/summary')).json();
+  document.querySelector('#sum').textContent=
+    `total ${s.total} · blocked ${s.blocked} · rate ${(s.block_rate*100).toFixed(1)}% · active ${s.active_model||'?'}`;
+  const es=new EventSource('/events/stream');
+  es.onmessage=ev=>row(JSON.parse(ev.data));
+}
+boot();
+</script>
