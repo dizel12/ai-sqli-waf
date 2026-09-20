@@ -121,10 +121,44 @@ ACTIVE_MODEL=baseline docker compose up -d
 ```
 
 Re-run an obfuscated attack and watch the detection log at
-<http://localhost:8081>: with `baseline` active you will see payloads the CNN
-would have caught pass through as `ALLOWED` (the header summary shows the
-current active model and threshold), because `baseline` has the lowest
-adversarial detection rate of the three models.
+<http://localhost:8081>: the header summary shows the current active model
+and threshold, and every row shows all three models' scores side by side.
+
+### Live-measured comparison (`baseline` vs `cnn`)
+
+Run against the actual stack, not the offline eval set, using the same
+requests against `ACTIVE_MODEL=baseline` and then `ACTIVE_MODEL=cnn`:
+
+| request | value | baseline score | cnn score | outcome |
+|---|---|---:|---:|---|
+| plain SQLi (`' OR 1=1 --`) | via `/search` | 0.9999 | 0.9996 | both **BLOCK** |
+| UNION exfiltration | `' UNION SELECT id, username, password, 0 FROM users -- ` | 0.9973 | 0.9893 | both **BLOCK** |
+| login bypass | `admin' --` | 0.9977 | 0.9736 | both **BLOCK** |
+| `+`-as-space obfuscation | `'+OR+1=1--+` | **0.135** | **0.989** | baseline **ALLOWS the attack through**, cnn blocks |
+| hard-negative benign search | `SELECT desk lamp` | **0.512** | 0.424 | baseline **false-positives** (score crosses 0.5), cnn allows correctly |
+| benign traffic (8 hard-negative samples: `chair 1=1 sale`, `O'Brien`, `1 or 2 day shipping`, …) | — | 1/8 blocked | 0/8 blocked | baseline false-positive rate 12.5% vs cnn 0% on this sample |
+
+On obvious, unobfuscated SQLi both models are equally decisive. The gap shows
+up exactly where the project's design intended it to: `baseline`'s char
+n-gram features latch onto short numeric/keyword patterns (`SELECT`, `1=1`)
+regardless of context, producing both a live false positive on a legitimate
+search and a miss on a trivially re-spaced attack payload that `cnn`'s
+learned representation handles correctly.
+
+> **Note on `reports/adversarial.md` vs. live behavior.** The offline
+> adversarial evaluation in `ml/evaluate.py` scores the raw corpus text
+> directly, without passing it through `waf_proxy/extract.py`'s
+> `normalize_value()` (one `unquote()` pass + whitespace-run collapse) the
+> way a live request is scored. For **whitespace-substitution** techniques
+> (tab/newline in `datasets/adversarial_testset.csv`), that collapse
+> normalizes the obfuscation away for both models before they ever see it —
+> live, `baseline` and `cnn` both score `'\tOR\t1=1\t-- ` at ~0.999, not the
+> 0.000 vs 1.000 the offline table reports for that row. For **encoding**
+> techniques (`double-url-encode`, `+`-as-space), the offline numbers do
+> track live behavior, because those bypasses survive the single decode
+> pass. Treat `reports/adversarial.md` as a lower bound on `cnn`/`distilbert`
+> and an *inaccurate* (too pessimistic) number for whitespace-based rows —
+> the live comparison above is the one to trust for deployment behavior.
 
 ## Training & evaluation
 
