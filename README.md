@@ -124,26 +124,41 @@ Re-run an obfuscated attack and watch the detection log at
 <http://localhost:8081>: the header summary shows the current active model
 and threshold, and every row shows all three models' scores side by side.
 
-### Live-measured comparison (`baseline` vs `cnn`)
+### Live-measured comparison — all three models
 
-Run against the actual stack, not the offline eval set, using the same
-requests against `ACTIVE_MODEL=baseline` and then `ACTIVE_MODEL=cnn`:
+Run against the actual stack (not the offline eval set) by sending the same
+requests and reading every model's score off the log UI's `/events`, which
+records the active model's score plus best-effort scores for the other two.
+`distilbert` isn't in the shipped `inference-svc` image by default (see
+[Training & evaluation](#training--evaluation)) — to include it here it was
+trained locally, then loaded into the running container for this test with
+`docker cp ml/artifacts/distilbert ai-sqli-waf-inference-svc-1:/app/ml/artifacts/`
+followed by `docker compose restart inference-svc` (recreating the container
+instead, e.g. via `ACTIVE_MODEL=... docker compose up -d`, discards the
+copied-in weights again, since they aren't part of the image).
 
-| request | value | baseline score | cnn score | outcome |
-|---|---|---:|---:|---|
-| plain SQLi (`' OR 1=1 --`) | via `/search` | 0.9999 | 0.9996 | both **BLOCK** |
-| UNION exfiltration | `' UNION SELECT id, username, password, 0 FROM users -- ` | 0.9973 | 0.9893 | both **BLOCK** |
-| login bypass | `admin' --` | 0.9977 | 0.9736 | both **BLOCK** |
-| `+`-as-space obfuscation | `'+OR+1=1--+` | **0.135** | **0.989** | baseline **ALLOWS the attack through**, cnn blocks |
-| hard-negative benign search | `SELECT desk lamp` | **0.512** | 0.424 | baseline **false-positives** (score crosses 0.5), cnn allows correctly |
-| benign traffic (8 hard-negative samples: `chair 1=1 sale`, `O'Brien`, `1 or 2 day shipping`, …) | — | 1/8 blocked | 0/8 blocked | baseline false-positive rate 12.5% vs cnn 0% on this sample |
+| request | value | baseline | cnn | distilbert | outcome |
+|---|---|---:|---:|---:|---|
+| plain SQLi | `' OR 1=1 --` | 0.9999 | 0.9996 | 0.9915 | all **BLOCK** |
+| UNION exfiltration | `' UNION SELECT id, username, password, 0 FROM users -- ` | 0.9973 | 0.9893 | 0.9918 | all **BLOCK** |
+| login bypass | `admin' --` | 0.9977 | 0.9736 | 0.9910 | all **BLOCK** |
+| `+`-as-space obfuscation (`%2B`, not a literal `+`) | decodes to `'+OR+1=1--+` | **0.135** | 0.989 | 0.992 | baseline **ALLOWS the attack through**; cnn and distilbert block |
+| hard-negative benign search | `SELECT desk lamp` | **0.512** | 0.424 | 0.009 | baseline **false-positives** (crosses 0.5); cnn and distilbert allow correctly |
+| benign traffic (8 hard-negative samples: `chair 1=1 sale`, `O'Brien`, `1 or 2 day shipping`, …) | — | 1/8 blocked | 0/8 blocked | 0/8 blocked, scores 0.009–0.011 | baseline false-positive rate 12.5%; cnn and distilbert 0% |
 
-On obvious, unobfuscated SQLi both models are equally decisive. The gap shows
-up exactly where the project's design intended it to: `baseline`'s char
-n-gram features latch onto short numeric/keyword patterns (`SELECT`, `1=1`)
-regardless of context, producing both a live false positive on a legitimate
-search and a miss on a trivially re-spaced attack payload that `cnn`'s
-learned representation handles correctly.
+On obvious, unobfuscated SQLi all three models are equally decisive — this is
+also why the offline test split in `reports/MODEL_REPORT.md` shows ~1.0 F1
+for all of them and isn't the interesting number. The gap shows up exactly
+where the project's design intended it to: `baseline`'s char n-gram features
+latch onto short numeric/keyword patterns (`SELECT`, `1=1`) regardless of
+context, producing both a live false positive on a legitimate search and a
+miss on a trivially obfuscated attack payload that `cnn` and `distilbert`'s
+learned representations handle correctly. `distilbert` is also the most
+*decisive* of the three on benign traffic here (scores an order of magnitude
+lower than baseline/cnn on every hard negative) — consistent with it having
+the highest adversarial detection rate of the three (see
+`reports/MODEL_REPORT.md`) at the cost of being ~89x slower and ~477x larger
+than `cnn`, which is why `cnn` remains the shipped active model.
 
 > **Note on `reports/adversarial.md` vs. live behavior.** The offline
 > adversarial evaluation in `ml/evaluate.py` scores the raw corpus text
