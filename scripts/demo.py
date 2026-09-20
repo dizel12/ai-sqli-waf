@@ -1,9 +1,15 @@
 from __future__ import annotations
 import os
 import subprocess
+import sys
 import time
+from pathlib import Path
 
 import httpx
+
+_ROOT = Path(__file__).resolve().parent.parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
 
 PROXY = os.environ.get("PROXY_URL", "http://localhost:8080")
 DIRECT = os.environ.get("DIRECT_URL", "http://localhost:8000")
